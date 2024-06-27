@@ -15,6 +15,8 @@ let articles = []; // Array to hold fetched articles
 
 // Function to fetch articles
 const fetchArticles = async (page = 1, query = '') => {
+    let articles = []; // Initialize inside the function scope
+
     const apiUrl = `https://newsapi.org/v2/top-headlines?country=us&apiKey=${process.env.NEWS_API_KEY}&pageSize=${pageSize}&page=${page}${query ? `&q=${query}` : ''}`;
 
     try {
@@ -25,25 +27,33 @@ const fetchArticles = async (page = 1, query = '') => {
         console.error('Error fetching articles:', error);
         throw error;
     }
+
+    return articles; // Return fetched articles
 };
 
 // Initial fetch on server start
-fetchArticles(currentPage);
+fetchArticles(currentPage)
+    .then(articles => {
+        console.log(`Fetched ${articles.length} articles on server start.`);
+    })
+    .catch(error => {
+        console.error('Error fetching articles on server start:', error);
+    });
 
 // Serve style.css
 app.get('/style.css', (req, res) => {
     res.sendFile(path.join(__dirname, 'style.css'));
 });
 
-// Handle news route
-app.get('/news', async (req, res) => {
-    const query = req.query.q || '';
-    const page = parseInt(req.query.page) || 1;
+// Handle index route
+app.get('/', async (req, res) => {
+    const query = req.query.q || ''; // Get query string for search
+    const page = parseInt(req.query.page) || 1; // Get page number
 
     try {
-        await fetchArticles(page, query);
+        const articles = await fetchArticles(page, query);
 
-        let newsHTML = `
+        let indexHTML = `
         <!DOCTYPE html>
         <html lang="en">
         <head>
@@ -53,18 +63,20 @@ app.get('/news', async (req, res) => {
             <link rel="stylesheet" href="/style.css">
         </head>
         <body>
-            <a href="/news" class="home-button">Home</a>
-            <div class="search-bar">
-                <form method="GET" action="/news">
-                    <input type="text" name="q" placeholder="Search for news..." value="${query}" />
-                    <button type="submit">Search</button>
-                </form>
+            <div class="header">
+                <a href="/" class="home-button">Home</a>
+                <div class="search-bar">
+                    <form method="GET" action="/">
+                        <input type="text" name="q" placeholder="Search for news..." value="${query}" />
+                        <button type="submit">Search</button>
+                    </form>
+                </div>
             </div>
             <h1 class="news-title">Latest News</h1>
             <div class="articles">`;
 
         articles.forEach(article => {
-            newsHTML += `
+            indexHTML += `
             <div class="article">
                 <h2>${article.title}</h2>
                 <p><strong>Source:</strong> ${article.source.name}</p>
@@ -72,26 +84,25 @@ app.get('/news', async (req, res) => {
                 <p><strong>Published At:</strong> ${new Date(article.publishedAt).toLocaleString()}</p>
                 <p><strong>Description:</strong> ${article.description}</p>`;
             if (article.urlToImage) {
-                newsHTML += `<img src="${article.urlToImage}" alt="Article Image">`;
+                indexHTML += `<img src="${article.urlToImage}" alt="Article Image">`;
             }
-            newsHTML += `<a href="${article.url}" target="_blank" class="button">Read more</a>
+            indexHTML += `<a href="${article.url}" target="_blank" class="button">Read more</a>
             </div>`;
         });
 
-        newsHTML += `
+        indexHTML += `
             </div>
             <div class="footer">
-                <a href="/news?page=${page > 1 ? page - 1 : 1}&q=${query}" class="button">Previous Page</a>
-                <a href="/news?page=${page + 1}&q=${query}" class="button">Next Page</a>
-                <a href="/" class="home-button">Home</a>
+                <a href="/?page=${page > 1 ? page - 1 : 1}&q=${query}" class="button ${page === 1 ? 'disabled' : ''}">Previous Page</a>
+                <a href="/?page=${page + 1}&q=${query}" class="button ${page * pageSize >= totalArticles ? 'disabled' : ''}">Next Page</a>
             </div>
         </body>
         </html>`;
 
-        res.send(newsHTML);
+        res.send(indexHTML);
     } catch (error) {
-        console.error('Error fetching news:', error);
-        res.status(500).send('Error fetching news');
+        console.error('Error fetching articles for index:', error);
+        res.status(500).send('Error fetching articles for index');
     }
 });
 
