@@ -1,9 +1,10 @@
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
+require('dotenv').config();
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000;
 
 app.use(express.static('public'));
 
@@ -14,7 +15,7 @@ let articles = []; // Array to hold fetched articles
 
 // Function to fetch articles
 const fetchArticles = async (page = 1, query = '') => {
-    const apiUrl = `https://newsapi.org/v2/top-headlines?country=us&apiKey=3d9f633b65604ca08b33ae89b82138fc${query ? `&q=${query}` : ''}&pageSize=${pageSize}&page=${page}`;
+    const apiUrl = `https://newsapi.org/v2/top-headlines?country=us&apiKey=${process.env.NEWS_API_KEY}&pageSize=${pageSize}&page=${page}${query ? `&q=${query}` : ''}`;
 
     try {
         const response = await axios.get(apiUrl);
@@ -43,9 +44,12 @@ app.get('/news', async (req, res) => {
         await fetchArticles(page, query);
 
         let newsHTML = `
-        <html>
+        <!DOCTYPE html>
+        <html lang="en">
         <head>
-            <title>News</title>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>Latest News</title>
             <link rel="stylesheet" href="/style.css">
         </head>
         <body>
@@ -56,7 +60,7 @@ app.get('/news', async (req, res) => {
                     <button type="submit">Search</button>
                 </form>
             </div>
-            <h1>Latest News</h1>
+            <h1 class="news-title">Latest News</h1>
             <div class="articles">`;
 
         articles.forEach(article => {
@@ -79,13 +83,14 @@ app.get('/news', async (req, res) => {
             <div class="footer">
                 <a href="/news?page=${page > 1 ? page - 1 : 1}&q=${query}" class="button">Previous Page</a>
                 <a href="/news?page=${page + 1}&q=${query}" class="button">Next Page</a>
-                <a href="/n" class="home-button">Home</a>
+                <a href="/" class="home-button">Home</a>
             </div>
         </body>
         </html>`;
 
         res.send(newsHTML);
     } catch (error) {
+        console.error('Error fetching news:', error);
         res.status(500).send('Error fetching news');
     }
 });
